@@ -1,5 +1,5 @@
 import { useRef, useEffect, useCallback } from "react";
-import { useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
+import { useFrame, type ThreeEvent } from "@react-three/fiber";
 import * as THREE from "three";
 import type { TreeNode } from "../../types";
 import { useTreeStore } from "../../stores/tree";
@@ -93,7 +93,6 @@ export function TreeNodes({ nodes, onExpand }: TreeNodesProps) {
   const hoveredRef = useRef<number | null>(null);
   const { selectNode, setHoveredNode } = useTreeStore();
 
-  const instanceCount = Math.min(nodes.length, MAX_INSTANCES);
 
   // Update instances when nodes change
   useEffect(() => {
