@@ -20,7 +20,8 @@ async function fetchTree(maxDepth: number, parentId?: number): Promise<TaxonNode
   const res = await fetch(`${API_BASE}/v1/taxonomy/tree?${params}`);
   if (!res.ok) throw new Error(`API error: ${res.status}`);
   const data: ApiResponse = await res.json();
-  return data.nodes;
+  // Filter out non-taxonomy entries (negative IDs = AI classes, NODATA, etc.)
+  return data.nodes.filter((n) => n.id > 0);
 }
 
 export function useInitialTree() {
@@ -30,7 +31,7 @@ export function useInitialTree() {
   // Load initial tree: top 4 levels (kingdom → class)
   const { data, isLoading } = useQuery({
     queryKey: ["taxonomy", "initial"],
-    queryFn: () => fetchTree(10), // load all for mock, API will limit via max_depth
+    queryFn: () => fetchTree(API_BASE ? 4 : 10), // API: top 4 levels, mock: all
     staleTime: Infinity,
     gcTime: Infinity,
   });
