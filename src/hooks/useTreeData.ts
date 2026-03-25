@@ -31,7 +31,7 @@ export function useInitialTree() {
   // Load initial tree: top 4 levels (kingdom → class)
   const { data, isLoading } = useQuery({
     queryKey: ["taxonomy", "initial"],
-    queryFn: () => fetchTree(API_BASE ? 4 : 10), // API: top 4 levels, mock: all
+    queryFn: () => fetchTree(API_BASE ? 3 : 10), // API: top 3 levels (kingdom→phylum→class), mock: all
     staleTime: Infinity,
     gcTime: Infinity,
   });
