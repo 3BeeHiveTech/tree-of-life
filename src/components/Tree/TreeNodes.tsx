@@ -194,10 +194,8 @@ export function TreeNodes({ nodes, onExpand }: TreeNodesProps) {
         frustumCulled={false}
       >
         <sphereGeometry args={[1, 20, 14]} />
-        <meshStandardMaterial
+        <meshBasicMaterial
           vertexColors
-          roughness={0.25}
-          metalness={0.05}
           toneMapped={false}
         />
       </instancedMesh>

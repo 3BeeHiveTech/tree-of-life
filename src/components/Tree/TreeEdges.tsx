@@ -86,27 +86,25 @@ export function TreeEdges({ edges, galaxyEdges }: TreeEdgesProps) {
 
   return (
     <group>
-      {/* Internal edges — solid */}
+      {/* Internal edges — solid, bright */}
       {solidGeo && (
         <lineSegments ref={solidRef} geometry={solidGeo}>
           <lineBasicMaterial
             vertexColors
             transparent
-            opacity={0.35}
-            blending={THREE.AdditiveBlending}
+            opacity={0.7}
             depthWrite={false}
           />
         </lineSegments>
       )}
 
-      {/* Galaxy edges — dashed */}
+      {/* Galaxy edges — dashed, bright */}
       {dashedGeo && (
         <lineSegments ref={dashedRef} geometry={dashedGeo}>
           <lineBasicMaterial
             vertexColors
             transparent
-            opacity={0.5}
-            blending={THREE.AdditiveBlending}
+            opacity={0.8}
             depthWrite={false}
           />
         </lineSegments>
