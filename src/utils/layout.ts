@@ -46,15 +46,6 @@ function fibonacciSphere(index: number, total: number): [number, number, number]
   return [Math.cos(theta) * radiusAtY, y, Math.sin(theta) * radiusAtY];
 }
 
-// Count all descendants recursively (to scale orbit radius)
-function countDescendants(node: HierNode): number {
-  let count = 1;
-  for (const child of node.children) {
-    count += countDescendants(child);
-  }
-  return count;
-}
-
 /**
  * Solar system layout:
  * - Children orbit their parent on a sphere in 3D
