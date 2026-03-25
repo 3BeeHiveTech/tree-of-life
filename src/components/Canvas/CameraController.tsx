@@ -46,7 +46,7 @@ export function CameraController() {
       ref={controlsRef}
       makeDefault
       minDistance={3}
-      maxDistance={200}
+      maxDistance={600}
       dollySpeed={0.5}
       truckSpeed={1}
       smoothTime={0.5}

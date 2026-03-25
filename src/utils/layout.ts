@@ -36,36 +36,32 @@ function buildHierarchy(flatNodes: TaxonNode[]): HierNode[] {
   return roots;
 }
 
-/**
- * Solar system layout:
- * - Children are distributed on a SPHERE around their parent
- * - Uses fibonacci sphere for even distribution
- * - Orbit radius shrinks with depth (deeper = tighter clusters)
- * - Each cluster is clearly separated in 3D space
- */
-
 // Fibonacci sphere: evenly distribute N points on a sphere surface
 function fibonacciSphere(index: number, total: number): [number, number, number] {
-  const goldenAngle = Math.PI * (3 - Math.sqrt(5)); // ~2.399
-  const y = 1 - (2 * index) / Math.max(total - 1, 1); // -1 to 1
-  const radiusAtY = Math.sqrt(1 - y * y);
+  if (total <= 1) return [1, 0, 0];
+  const goldenAngle = Math.PI * (3 - Math.sqrt(5));
+  const y = 1 - (2 * index) / (total - 1);
+  const radiusAtY = Math.sqrt(Math.max(0, 1 - y * y));
   const theta = goldenAngle * index;
-  const x = Math.cos(theta) * radiusAtY;
-  const z = Math.sin(theta) * radiusAtY;
-  return [x, y, z];
+  return [Math.cos(theta) * radiusAtY, y, Math.sin(theta) * radiusAtY];
 }
 
-// Orbit radius per depth — how far children are from parent
-const ORBIT_RADIUS: Record<number, number> = {
-  0: 35,  // kingdoms spread very far apart
-  1: 20,  // phyla around kingdom
-  2: 12,  // classes around phylum
-  3: 8,   // orders around class
-  4: 5,   // families around order
-  5: 3.5, // genera around family
-  6: 2,   // species around genus
-};
+// Count all descendants recursively (to scale orbit radius)
+function countDescendants(node: HierNode): number {
+  let count = 1;
+  for (const child of node.children) {
+    count += countDescendants(child);
+  }
+  return count;
+}
 
+/**
+ * Solar system layout:
+ * - Children orbit their parent on a sphere in 3D
+ * - Orbit radius scales with number of children (more children = bigger orbit)
+ * - Minimum spacing guarantees no overlap
+ * - Depth reduces base radius (deeper = tighter clusters)
+ */
 function layoutSolarSystem(
   node: HierNode,
   cx: number,
@@ -80,16 +76,29 @@ function layoutSolarSystem(
 
   if (node.children.length === 0) return;
 
-  // Sort for consistent layout
   node.children.sort((a, b) => a.data.name.localeCompare(b.data.name));
 
-  const orbitR = ORBIT_RADIUS[depth] ?? Math.max(2, 10 - depth * 1.5);
   const count = node.children.length;
+
+  // Orbit radius: base per depth + scaled by child count
+  // More children = wider orbit so they don't overlap
+  const baseRadius: Record<number, number> = {
+    0: 80,   // kingdoms far apart
+    1: 50,   // phyla around kingdom
+    2: 30,   // classes around phylum
+    3: 18,   // orders around class
+    4: 12,   // families around order
+    5: 8,    // genera around family
+    6: 5,    // species around genus
+  };
+
+  const base = baseRadius[depth] ?? 5;
+  // Scale up if many children
+  const orbitR = base + Math.sqrt(count) * (base * 0.15);
 
   for (let i = 0; i < count; i++) {
     const [fx, fy, fz] = fibonacciSphere(i, count);
 
-    // Place child on sphere around parent
     const childX = cx + fx * orbitR;
     const childY = cy + fy * orbitR;
     const childZ = cz + fz * orbitR;
@@ -105,14 +114,19 @@ export function computeLayout(
   const roots = buildHierarchy(flatNodes);
   if (roots.length === 0) return { nodes: [], edges: [] };
 
-  // Sort roots
   roots.sort((a, b) => a.data.name.localeCompare(b.data.name));
 
-  // Distribute root nodes on a large sphere (or circle if few)
-  const rootSpread = 50;
+  // Distribute roots on a very large sphere
+  const rootSpread = 120;
   for (let i = 0; i < roots.length; i++) {
     const [fx, fy, fz] = fibonacciSphere(i, roots.length);
-    layoutSolarSystem(roots[i], fx * rootSpread, fy * rootSpread * 0.3, fz * rootSpread, 0);
+    layoutSolarSystem(
+      roots[i],
+      fx * rootSpread,
+      fy * rootSpread * 0.4, // flatten Y a bit
+      fz * rootSpread,
+      0,
+    );
   }
 
   // Collect all nodes and edges
@@ -134,6 +148,7 @@ export function computeLayout(
       expanded: false,
     });
 
+    // Edge from parent to this node
     if (parentPos) {
       edges.push([parentPos[0], parentPos[1], parentPos[2], node.x, node.y, node.z]);
     }

@@ -15,75 +15,23 @@ const tempMatrix = new THREE.Matrix4();
 const tempColor = new THREE.Color();
 const tempVec = new THREE.Vector3();
 
-// Custom shader for per-instance glowing orbs
-const orbVertexShader = /* glsl */ `
-  varying vec3 vNormal;
-  varying vec3 vViewPosition;
-  varying vec3 vColor;
-
-  void main() {
-    vColor = instanceColor.rgb;
-    vNormal = normalize(normalMatrix * normal);
-    vec4 mvPosition = modelViewMatrix * instanceMatrix * vec4(position, 1.0);
-    vViewPosition = -mvPosition.xyz;
-    gl_Position = projectionMatrix * mvPosition;
-  }
-`;
-
-const orbFragmentShader = /* glsl */ `
-  varying vec3 vNormal;
-  varying vec3 vViewPosition;
-  varying vec3 vColor;
-
-  void main() {
-    // Fresnel rim glow — brighter at edges
-    vec3 viewDir = normalize(vViewPosition);
-    float fresnel = 1.0 - abs(dot(viewDir, vNormal));
-    fresnel = pow(fresnel, 2.0);
-
-    // Core color with radial gradient (brighter center)
-    float centerGlow = pow(max(dot(viewDir, vNormal), 0.0), 1.0);
-
-    // Combine: soft core + subtle rim
-    vec3 core = vColor * centerGlow * 0.8;
-    vec3 rim = vColor * fresnel * 0.6;
-    vec3 ambient = vColor * 0.12;
-
-    vec3 finalColor = core + rim + ambient;
-
-    // Subtle inner light variation
-    float sparkle = sin(dot(vNormal.xy, vec2(12.9898, 78.233))) * 0.05 + 0.95;
-    finalColor *= sparkle;
-
-    gl_FragColor = vec4(finalColor, 1.0);
-  }
-`;
-
-// Halo/glow sprite shader
+// Halo shader — additive glow behind each node
 const haloVertexShader = /* glsl */ `
   varying vec3 vColor;
-
   void main() {
     vColor = instanceColor.rgb;
     vec4 mvPosition = modelViewMatrix * instanceMatrix * vec4(position, 1.0);
     gl_Position = projectionMatrix * mvPosition;
   }
 `;
-
 const haloFragmentShader = /* glsl */ `
   varying vec3 vColor;
-
   void main() {
-    // Circular gradient from center
     vec2 uv = gl_PointCoord * 2.0 - 1.0;
     float dist = length(uv);
     if (dist > 1.0) discard;
-
-    // Soft radial falloff
-    float alpha = pow(1.0 - dist, 3.0) * 0.4;
-    vec3 color = vColor * 0.6;
-
-    gl_FragColor = vec4(color, alpha);
+    float alpha = pow(1.0 - dist, 3.0) * 0.3;
+    gl_FragColor = vec4(vColor * 0.5, alpha);
   }
 `;
 
@@ -92,7 +40,6 @@ export function TreeNodes({ nodes, onExpand }: TreeNodesProps) {
   const haloRef = useRef<THREE.InstancedMesh>(null);
   const hoveredRef = useRef<number | null>(null);
   const { selectNode, setHoveredNode } = useTreeStore();
-
 
   // Update instances when nodes change
   useEffect(() => {
@@ -105,23 +52,22 @@ export function TreeNodes({ nodes, onExpand }: TreeNodesProps) {
     for (let i = 0; i < count; i++) {
       const node = nodes[i];
       const hdrColor = getNodeHDRColor(node.color, node.rank);
-
-      // Orb sphere
       const scale = node.size;
+
+      // Orb
       tempMatrix.makeTranslation(node.x, node.y, node.z);
       tempMatrix.scale(tempVec.set(scale, scale, scale));
       orb.setMatrixAt(i, tempMatrix);
       tempColor.setRGB(hdrColor[0], hdrColor[1], hdrColor[2]);
       orb.setColorAt(i, tempColor);
 
-      // Halo (bigger, same position)
+      // Halo (bigger)
       if (halo) {
         const haloScale = scale * 2.5;
         tempMatrix.makeTranslation(node.x, node.y, node.z);
         tempMatrix.scale(tempVec.set(haloScale, haloScale, haloScale));
         halo.setMatrixAt(i, tempMatrix);
-        // Dimmer color for halo
-        tempColor.setRGB(hdrColor[0] * 0.4, hdrColor[1] * 0.4, hdrColor[2] * 0.4);
+        tempColor.setRGB(hdrColor[0] * 0.3, hdrColor[1] * 0.3, hdrColor[2] * 0.3);
         halo.setColorAt(i, tempColor);
       }
     }
@@ -144,7 +90,7 @@ export function TreeNodes({ nodes, onExpand }: TreeNodesProps) {
     }
   }, [nodes]);
 
-  // Animate only selected/hovered — not all every frame
+  // Animate only selected/hovered
   useFrame(() => {
     const orb = orbRef.current;
     if (!orb) return;
@@ -217,12 +163,14 @@ export function TreeNodes({ nodes, onExpand }: TreeNodesProps) {
 
   if (nodes.length === 0) return null;
 
+  const meshCount = Math.min(MAX_INSTANCES, Math.max(nodes.length, 1));
+
   return (
     <group>
-      {/* Halo glow layer — behind the orbs, additive blended */}
+      {/* Halo glow — additive, behind orbs */}
       <instancedMesh
         ref={haloRef}
-        args={[undefined, undefined, Math.min(MAX_INSTANCES, Math.max(nodes.length, 1))]}
+        args={[undefined, undefined, meshCount]}
         frustumCulled={false}
         renderOrder={-1}
       >
@@ -233,23 +181,25 @@ export function TreeNodes({ nodes, onExpand }: TreeNodesProps) {
           transparent
           depthWrite={false}
           blending={THREE.AdditiveBlending}
-          side={THREE.FrontSide}
         />
       </instancedMesh>
 
-      {/* Main orb layer — custom fresnel shader */}
+      {/* Main orb — MeshStandardMaterial for raycasting support */}
       <instancedMesh
         ref={orbRef}
-        args={[undefined, undefined, Math.min(MAX_INSTANCES, Math.max(nodes.length, 1))]}
+        args={[undefined, undefined, meshCount]}
         onClick={handleClick}
         onPointerOver={handlePointerOver}
         onPointerOut={handlePointerOut}
         frustumCulled={false}
       >
-        <sphereGeometry args={[1, 24, 16]} />
-        <shaderMaterial
-          vertexShader={orbVertexShader}
-          fragmentShader={orbFragmentShader}
+        <sphereGeometry args={[1, 20, 14]} />
+        <meshStandardMaterial
+          vertexColors
+          emissive={new THREE.Color(1, 1, 1)}
+          emissiveIntensity={0.4}
+          roughness={0.2}
+          metalness={0.1}
           toneMapped={false}
         />
       </instancedMesh>

@@ -22,7 +22,7 @@ interface SceneProps {
 export function Scene({ layout, onExpand }: SceneProps) {
   return (
     <Canvas
-      camera={{ position: [30, 25, 30], fov: 50, near: 0.1, far: 500 }}
+      camera={{ position: [120, 80, 120], fov: 50, near: 0.1, far: 2000 }}
       gl={{
         antialias: true,
         toneMapping: THREE.ACESFilmicToneMapping,
@@ -37,9 +37,9 @@ export function Scene({ layout, onExpand }: SceneProps) {
       <pointLight position={[-15, 5, 15]} intensity={0.3} color="#ff8844" />
 
       <Stars
-        radius={200}
-        depth={100}
-        count={3000}
+        radius={800}
+        depth={300}
+        count={5000}
         factor={4}
         saturation={0.3}
         fade
