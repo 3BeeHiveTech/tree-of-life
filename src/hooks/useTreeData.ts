@@ -64,7 +64,7 @@ export function useExpandSubtree() {
       try {
         const nodes = await queryClient.fetchQuery({
           queryKey: ["taxonomy", "subtree", parentId],
-          queryFn: () => fetchTree(3, parentId),
+          queryFn: () => fetchTree(1, parentId), // load only next level
           staleTime: Infinity,
           gcTime: Infinity,
         });

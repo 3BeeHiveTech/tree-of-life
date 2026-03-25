@@ -24,15 +24,15 @@ export const IUCN_COLORS: Record<string, [number, number, number]> = {
   NE: [0.5, 0.5, 0.55],
 };
 
-// Size per rank — more dramatic variation
+// Size per rank — smaller to avoid overlap
 export const RANK_SIZES: Record<string, number> = {
-  kingdom: 2.5,
-  phylum: 1.8,
-  class: 1.4,
-  order: 1.0,
-  family: 0.75,
-  genus: 0.5,
-  species: 0.3,
+  kingdom: 1.8,
+  phylum: 1.2,
+  class: 0.8,
+  order: 0.6,
+  family: 0.45,
+  genus: 0.3,
+  species: 0.2,
 };
 
 // HDR intensity multiplier per rank (higher rank = brighter glow)
