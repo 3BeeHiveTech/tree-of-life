@@ -26,12 +26,13 @@ export function TreeEdges({ edges }: TreeEdgesProps) {
       positions[offset + 4] = y2;
       positions[offset + 5] = z2;
 
-      colors[offset] = 0.2;
-      colors[offset + 1] = 0.3;
-      colors[offset + 2] = 0.5;
-      colors[offset + 3] = 0.3;
-      colors[offset + 4] = 0.5;
-      colors[offset + 5] = 0.8;
+      // Brighter edges — white-blue gradient
+      colors[offset] = 0.3;
+      colors[offset + 1] = 0.4;
+      colors[offset + 2] = 0.7;
+      colors[offset + 3] = 0.5;
+      colors[offset + 4] = 0.7;
+      colors[offset + 5] = 1.0;
     }
 
     const geo = new THREE.BufferGeometry();
@@ -47,7 +48,7 @@ export function TreeEdges({ edges }: TreeEdgesProps) {
       <lineBasicMaterial
         vertexColors
         transparent
-        opacity={0.25}
+        opacity={0.4}
         blending={THREE.AdditiveBlending}
         depthWrite={false}
       />

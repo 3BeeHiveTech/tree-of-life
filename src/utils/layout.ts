@@ -36,65 +36,39 @@ function buildHierarchy(flatNodes: TaxonNode[]): HierNode[] {
   return roots;
 }
 
-// Fibonacci sphere: evenly distribute N points on a sphere surface
-function fibonacciSphere(index: number, total: number): [number, number, number] {
-  if (total <= 1) return [1, 0, 0];
-  const goldenAngle = Math.PI * (3 - Math.sqrt(5));
-  const y = 1 - (2 * index) / (total - 1);
-  const radiusAtY = Math.sqrt(Math.max(0, 1 - y * y));
-  const theta = goldenAngle * index;
-  return [Math.cos(theta) * radiusAtY, y, Math.sin(theta) * radiusAtY];
+// Distribute N points on a sphere surface (fibonacci)
+function fibSphere(i: number, n: number): [number, number, number] {
+  if (n <= 1) return [0, 0, 1];
+  const golden = Math.PI * (3 - Math.sqrt(5));
+  const y = 1 - (2 * i) / (n - 1);
+  const r = Math.sqrt(Math.max(0, 1 - y * y));
+  const theta = golden * i;
+  return [Math.cos(theta) * r, y, Math.sin(theta) * r];
 }
 
-/**
- * Solar system layout:
- * - Children orbit their parent on a sphere in 3D
- * - Orbit radius scales with number of children (more children = bigger orbit)
- * - Minimum spacing guarantees no overlap
- * - Depth reduces base radius (deeper = tighter clusters)
- */
-function layoutSolarSystem(
-  node: HierNode,
-  cx: number,
-  cy: number,
-  cz: number,
+// Place children on a tight sphere around parent
+function placeChildren(
+  parent: HierNode,
+  orbitRadius: number,
   depth: number,
-): void {
-  node.x = cx;
-  node.y = cy;
-  node.z = cz;
-  node.depth = depth;
+) {
+  if (parent.children.length === 0) return;
 
-  if (node.children.length === 0) return;
+  parent.children.sort((a, b) => a.data.name.localeCompare(b.data.name));
+  const n = parent.children.length;
 
-  node.children.sort((a, b) => a.data.name.localeCompare(b.data.name));
+  for (let i = 0; i < n; i++) {
+    const [sx, sy, sz] = fibSphere(i, n);
+    const child = parent.children[i];
 
-  const count = node.children.length;
+    child.x = parent.x + sx * orbitRadius;
+    child.y = parent.y + sy * orbitRadius;
+    child.z = parent.z + sz * orbitRadius;
+    child.depth = depth;
 
-  // Orbit radius: base per depth + scaled by child count
-  // More children = wider orbit so they don't overlap
-  const baseRadius: Record<number, number> = {
-    0: 80,   // kingdoms far apart
-    1: 50,   // phyla around kingdom
-    2: 30,   // classes around phylum
-    3: 18,   // orders around class
-    4: 12,   // families around order
-    5: 8,    // genera around family
-    6: 5,    // species around genus
-  };
-
-  const base = baseRadius[depth] ?? 5;
-  // Scale up if many children
-  const orbitR = base + Math.sqrt(count) * (base * 0.15);
-
-  for (let i = 0; i < count; i++) {
-    const [fx, fy, fz] = fibonacciSphere(i, count);
-
-    const childX = cx + fx * orbitR;
-    const childY = cy + fy * orbitR;
-    const childZ = cz + fz * orbitR;
-
-    layoutSolarSystem(node.children[i], childX, childY, childZ, depth + 1);
+    // Children of children orbit tighter
+    const childOrbit = orbitRadius * 0.45;
+    placeChildren(child, childOrbit, depth + 1);
   }
 }
 
@@ -107,24 +81,63 @@ export function computeLayout(
 
   roots.sort((a, b) => a.data.name.localeCompare(b.data.name));
 
-  // Distribute roots on a very large sphere
-  const rootSpread = 120;
-  for (let i = 0; i < roots.length; i++) {
-    const [fx, fy, fz] = fibonacciSphere(i, roots.length);
-    layoutSolarSystem(
-      roots[i],
-      fx * rootSpread,
-      fy * rootSpread * 0.4, // flatten Y a bit
-      fz * rootSpread,
-      0,
-    );
+  // === STEP 1: Central sun "Life" at origin ===
+  // If single root with children, it's the sun
+  // If multiple roots, they ARE the galaxies
+
+  let galaxies: HierNode[];
+  let sunNode: HierNode | null = null;
+
+  if (roots.length === 1 && roots[0].children.length > 0) {
+    // Single root (e.g. "Life") → its children are galaxies
+    sunNode = roots[0];
+    sunNode.x = 0;
+    sunNode.y = 0;
+    sunNode.z = 0;
+    sunNode.depth = 0;
+    galaxies = sunNode.children;
+  } else {
+    // Multiple roots → they are galaxies directly
+    galaxies = roots;
   }
 
-  // Collect all nodes and edges
+  // === STEP 2: Place galaxies on a flat circle, far apart ===
+  const galaxyDistance = 100; // distance from center to each galaxy
+  const n = galaxies.length;
+
+  for (let i = 0; i < n; i++) {
+    const angle = (2 * Math.PI * i) / n;
+    const galaxy = galaxies[i];
+
+    // Galaxy sun position — flat circle in XZ plane
+    galaxy.x = Math.cos(angle) * galaxyDistance;
+    galaxy.y = 0;
+    galaxy.z = Math.sin(angle) * galaxyDistance;
+    galaxy.depth = sunNode ? 1 : 0;
+
+    // === STEP 3: Stars orbit their galaxy sun, close & 3D ===
+    const orbitRadius = 25; // stars close to their sun
+    placeChildren(galaxy, orbitRadius, galaxy.depth + 1);
+  }
+
+  // === STEP 4: Collect all nodes and edges ===
   const nodes: TreeNode[] = [];
   const edges: LayoutResult["edges"] = [];
 
-  function collect(node: HierNode, parentPos: [number, number, number] | null) {
+  // Add sun node if exists
+  if (sunNode) {
+    const color = getNodeColor(sunNode.data.iconic_taxa, sunNode.data.conservation_status, colorMode);
+    nodes.push({
+      ...sunNode.data,
+      x: 0, y: 0, z: 0,
+      depth: 0,
+      color,
+      size: (RANK_SIZES[sunNode.data.rank] ?? 1) * 1.5,
+      expanded: false,
+    });
+  }
+
+  function collect(node: HierNode, parentPos: [number, number, number]) {
     const color = getNodeColor(node.data.iconic_taxa, node.data.conservation_status, colorMode);
     const size = RANK_SIZES[node.data.rank] ?? 0.3;
 
@@ -139,10 +152,8 @@ export function computeLayout(
       expanded: false,
     });
 
-    // Edge from parent to this node
-    if (parentPos) {
-      edges.push([parentPos[0], parentPos[1], parentPos[2], node.x, node.y, node.z]);
-    }
+    // Edge from parent → this node
+    edges.push([parentPos[0], parentPos[1], parentPos[2], node.x, node.y, node.z]);
 
     const pos: [number, number, number] = [node.x, node.y, node.z];
     for (const child of node.children) {
@@ -150,8 +161,18 @@ export function computeLayout(
     }
   }
 
-  for (const root of roots) {
-    collect(root, null);
+  // Connect sun → galaxies → stars
+  const sunPos: [number, number, number] = sunNode ? [0, 0, 0] : [0, 0, 0];
+  for (const galaxy of galaxies) {
+    collect(galaxy, sunNode ? sunPos : [galaxy.x, galaxy.y, galaxy.z]);
+    // If no sun node, don't draw edge from origin
+    if (!sunNode) {
+      // Remove the last edge we just added (self-edge)
+      const lastEdge = edges[edges.length - 1];
+      if (lastEdge && lastEdge[0] === lastEdge[3] && lastEdge[1] === lastEdge[4] && lastEdge[2] === lastEdge[5]) {
+        edges.pop();
+      }
+    }
   }
 
   return { nodes, edges };

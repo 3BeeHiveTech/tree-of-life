@@ -22,7 +22,7 @@ interface SceneProps {
 export function Scene({ layout, onExpand }: SceneProps) {
   return (
     <Canvas
-      camera={{ position: [120, 80, 120], fov: 50, near: 0.1, far: 2000 }}
+      camera={{ position: [0, 180, 180], fov: 50, near: 0.1, far: 2000 }}
       gl={{
         antialias: true,
         toneMapping: THREE.ACESFilmicToneMapping,
