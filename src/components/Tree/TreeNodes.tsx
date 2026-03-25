@@ -196,10 +196,8 @@ export function TreeNodes({ nodes, onExpand }: TreeNodesProps) {
         <sphereGeometry args={[1, 20, 14]} />
         <meshStandardMaterial
           vertexColors
-          emissive={new THREE.Color(1, 1, 1)}
-          emissiveIntensity={0.4}
-          roughness={0.2}
-          metalness={0.1}
+          roughness={0.25}
+          metalness={0.05}
           toneMapped={false}
         />
       </instancedMesh>

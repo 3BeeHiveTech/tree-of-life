@@ -24,7 +24,7 @@ function App() {
   // Compute layout whenever loaded nodes or color mode changes
   const layout = useMemo(() => {
     const nodesArray = Array.from(loadedNodes.values());
-    if (nodesArray.length === 0) return { nodes: [], edges: [] };
+    if (nodesArray.length === 0) return { nodes: [], edges: [], galaxyEdges: [] };
     return computeLayout(nodesArray, colorMode);
   }, [loadedNodes, colorMode]);
 

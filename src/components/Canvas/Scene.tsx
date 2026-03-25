@@ -55,7 +55,7 @@ export function Scene({ layout, onExpand }: SceneProps) {
         color="#4488ff"
       />
 
-      <TreeEdges edges={layout.edges} />
+      <TreeEdges edges={layout.edges} galaxyEdges={layout.galaxyEdges} />
       <TreeNodes nodes={layout.nodes} onExpand={onExpand} />
       <TreeLabels nodes={layout.nodes} />
 

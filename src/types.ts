@@ -26,9 +26,12 @@ export interface TreeNode extends TaxonNode {
   expanded: boolean;
 }
 
+export type Edge = [number, number, number, number, number, number];
+
 export interface LayoutResult {
   nodes: TreeNode[];
-  edges: Array<[number, number, number, number, number, number]>;
+  edges: Edge[];
+  galaxyEdges: Edge[]; // sun → kingdom links (dashed)
 }
 
 // LOD tier based on screen-space size

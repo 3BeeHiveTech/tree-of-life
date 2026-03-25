@@ -77,7 +77,7 @@ export function computeLayout(
   colorMode: ColorMode = "iconic"
 ): LayoutResult {
   const roots = buildHierarchy(flatNodes);
-  if (roots.length === 0) return { nodes: [], edges: [] };
+  if (roots.length === 0) return { nodes: [], edges: [], galaxyEdges: [] };
 
   roots.sort((a, b) => a.data.name.localeCompare(b.data.name));
 
@@ -123,6 +123,7 @@ export function computeLayout(
   // === STEP 4: Collect all nodes and edges ===
   const nodes: TreeNode[] = [];
   const edges: LayoutResult["edges"] = [];
+  const galaxyEdges: LayoutResult["galaxyEdges"] = [];
 
   // Add sun node if exists
   if (sunNode) {
@@ -137,7 +138,7 @@ export function computeLayout(
     });
   }
 
-  function collect(node: HierNode, parentPos: [number, number, number]) {
+  function collectInternal(node: HierNode, parentPos: [number, number, number]) {
     const color = getNodeColor(node.data.iconic_taxa, node.data.conservation_status, colorMode);
     const size = RANK_SIZES[node.data.rank] ?? 0.3;
 
@@ -152,28 +153,41 @@ export function computeLayout(
       expanded: false,
     });
 
-    // Edge from parent → this node
+    // Internal edge (solid)
     edges.push([parentPos[0], parentPos[1], parentPos[2], node.x, node.y, node.z]);
 
     const pos: [number, number, number] = [node.x, node.y, node.z];
     for (const child of node.children) {
-      collect(child, pos);
+      collectInternal(child, pos);
     }
   }
 
-  // Connect sun → galaxies → stars
-  const sunPos: [number, number, number] = sunNode ? [0, 0, 0] : [0, 0, 0];
+  // Sun → galaxies = dashed edges, internal = solid edges
   for (const galaxy of galaxies) {
-    collect(galaxy, sunNode ? sunPos : [galaxy.x, galaxy.y, galaxy.z]);
-    // If no sun node, don't draw edge from origin
-    if (!sunNode) {
-      // Remove the last edge we just added (self-edge)
-      const lastEdge = edges[edges.length - 1];
-      if (lastEdge && lastEdge[0] === lastEdge[3] && lastEdge[1] === lastEdge[4] && lastEdge[2] === lastEdge[5]) {
-        edges.pop();
-      }
+    const color = getNodeColor(galaxy.data.iconic_taxa, galaxy.data.conservation_status, colorMode);
+    const size = RANK_SIZES[galaxy.data.rank] ?? 0.3;
+
+    // Add galaxy node
+    nodes.push({
+      ...galaxy.data,
+      x: galaxy.x, y: galaxy.y, z: galaxy.z,
+      depth: galaxy.depth,
+      color,
+      size,
+      expanded: false,
+    });
+
+    // Dashed edge from sun → galaxy
+    if (sunNode) {
+      galaxyEdges.push([0, 0, 0, galaxy.x, galaxy.y, galaxy.z]);
+    }
+
+    // Internal edges within the galaxy (solid)
+    const galaxyPos: [number, number, number] = [galaxy.x, galaxy.y, galaxy.z];
+    for (const child of galaxy.children) {
+      collectInternal(child, galaxyPos);
     }
   }
 
-  return { nodes, edges };
+  return { nodes, edges, galaxyEdges };
 }
